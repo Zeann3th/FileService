@@ -9,6 +9,8 @@ public enum ErrorCode {
     FS0002(ErrorType.FAILURE, "Invalid filename: <reason>"),
     FS0003(ErrorType.FAILURE, "Error generating presigned URL: <reason>"),
     FS0004(ErrorType.FAILURE, "Error retrieving file: <reason>"),
+    FS0005(ErrorType.FAILURE, "Access denied"),
+    FS0006(ErrorType.FAILURE, "Missing or invalid authorization"),
     FS9999(ErrorType.FAILURE, "System is busy, please try again later"),;
 
     private final ErrorType errorType;

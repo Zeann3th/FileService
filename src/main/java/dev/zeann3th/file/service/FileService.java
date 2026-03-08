@@ -10,6 +10,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -25,15 +26,34 @@ public class FileService {
     @Value("${file-service.public-url}")
     private String publicUrl;
 
-    /**
-     * Generate a presigned PUT URL so clients can upload directly to MinIO.
-     * Returns the presign URL + the permanent file URL other services can reference.
-     */
-    public PresignResponse presignUpload(String filename) throws Exception {
-        String key = UUID.randomUUID() + "/" + filename;
+    public PresignResponse presignUpload(String filename, boolean isPrivate, String keyPath, String sub) throws Exception {
+        String extension = "";
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex >= 0) {
+            extension = filename.substring(dotIndex);
+        }
+
+        String date = LocalDate.now().toString();
+        String key;
+
+        if (isPrivate) {
+            // private/<sub>/<date>/<keyPath>/uuid.ext  or  private/<sub>/<date>/uuid.ext
+            key = "private/" + sub + "/" + date;
+            if (keyPath != null && !keyPath.isBlank()) {
+                key += "/" + keyPath.strip();
+            }
+            key += "/" + UUID.randomUUID() + extension;
+        } else {
+            // public/<date>/<keyPath>/uuid.ext  or  public/<date>/uuid.ext
+            key = "public/" + date;
+            if (keyPath != null && !keyPath.isBlank()) {
+                key += "/" + keyPath.strip();
+            }
+            key += "/" + UUID.randomUUID() + extension;
+        }
 
         String presignUrl = minioClient.getPresignedObjectUrl(
-                io.minio.GetPresignedObjectUrlArgs.builder()
+                GetPresignedObjectUrlArgs.builder()
                         .method(Method.PUT)
                         .bucket(bucket)
                         .object(key)
@@ -41,7 +61,7 @@ public class FileService {
                         .build()
         );
 
-        String fileUrl = publicUrl + "/api/files/" + key;
+        String fileUrl = publicUrl + "/" + key;
 
         return PresignResponse.builder()
                 .presignUrl(presignUrl)
@@ -50,12 +70,9 @@ public class FileService {
                 .build();
     }
 
-    /**
-     * Generate a presigned GET URL for direct download from MinIO.
-     */
     public String presignDownload(String key) throws Exception {
         return minioClient.getPresignedObjectUrl(
-                io.minio.GetPresignedObjectUrlArgs.builder()
+                GetPresignedObjectUrlArgs.builder()
                         .method(Method.GET)
                         .bucket(bucket)
                         .object(key)
@@ -64,9 +81,6 @@ public class FileService {
         );
     }
 
-    /**
-     * Serve the file through this service (proxy from MinIO).
-     */
     public Resource getFile(String key) throws Exception {
         InputStream stream = minioClient.getObject(
                 GetObjectArgs.builder()
@@ -77,9 +91,6 @@ public class FileService {
         return new InputStreamResource(stream);
     }
 
-    /**
-     * Get the content type of a stored object.
-     */
     public String getContentType(String key) throws Exception {
         StatObjectResponse stat = minioClient.statObject(
                 StatObjectArgs.builder()
