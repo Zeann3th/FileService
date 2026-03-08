@@ -1,0 +1,44 @@
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9001:9001"
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  file-service:
+    build: .
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: files
+      FILE_SERVICE_PUBLIC_URL: http://file-service:8080
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - extern
+      - private
+
+volumes:
+  minio-data:
+
+networks:
+  extern:
+    name: gateway
+    external: true
+  private:
+    driver: bridge
+    internal: true
