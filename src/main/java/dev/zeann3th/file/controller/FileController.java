@@ -23,7 +23,7 @@ public class FileController {
 
     private final FileService fileService;
 
-    @PostMapping("/presign/upload")
+    @PostMapping("/api/v1/files/presign/upload")
     @ResponseWrapper
     public PresignResponse presignUpload(
             @RequestBody PresignUploadRequest request,
@@ -37,7 +37,7 @@ public class FileController {
         );
     }
 
-    @GetMapping("/presign/download/{*key}")
+    @GetMapping("/api/v1/files/presign/download/{*key}")
     @ResponseWrapper
     public Map<String, String> presignDownload(
             @PathVariable String key,

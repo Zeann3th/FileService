@@ -61,7 +61,7 @@ public class FileService {
                         .build()
         );
 
-        String fileUrl = publicUrl + "/" + key;
+        String fileUrl = publicUrl + "/api/v1/files/" + key;
 
         return PresignResponse.builder()
                 .presignUrl(presignUrl)
