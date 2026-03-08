@@ -1,6 +1,7 @@
 package dev.zeann3th.file.controller;
 
 import dev.zeann3th.file.dto.PresignResponse;
+import dev.zeann3th.file.exception.ResponseWrapper;
 import dev.zeann3th.file.service.FileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -24,8 +25,9 @@ public class FileController {
      * Returns: { presignUrl, fileUrl, key }
      */
     @PostMapping("/presign/upload")
-    public ResponseEntity<PresignResponse> presignUpload(@RequestParam String filename) throws Exception {
-        return ResponseEntity.ok(fileService.presignUpload(filename));
+    @ResponseWrapper
+    public PresignResponse presignUpload(@RequestParam String filename) throws Exception {
+        return fileService.presignUpload(filename);
     }
 
     /**
@@ -33,9 +35,10 @@ public class FileController {
      * GET /api/files/presign/download/{*key}
      */
     @GetMapping("/presign/download/{*key}")
-    public ResponseEntity<Map<String, String>> presignDownload(@PathVariable String key) throws Exception {
+    @ResponseWrapper
+    public Map<String, String> presignDownload(@PathVariable String key) throws Exception {
         String url = fileService.presignDownload(normalizeKey(key));
-        return ResponseEntity.ok(Map.of("url", url));
+        return Map.of("url", url);
     }
 
     /**
