@@ -1,5 +1,6 @@
 package dev.zeann3th.file.util;
 
+import dev.zeann3th.file.common.Constants;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -32,8 +33,13 @@ public class JwtUtils {
             String email = node.has("email") ? node.get("email").asString(null) : null;
 
             List<String> roles = new ArrayList<>();
-            if (node.has("realm_access") && node.get("realm_access").has("roles")) {
-                for (JsonNode role : node.get("realm_access").get("roles")) {
+            if (node.has(Constants.CLAIM_REALM_ACCESS) && node.get(Constants.CLAIM_REALM_ACCESS).has(Constants.CLAIM_ROLES)) {
+                for (JsonNode role : node.get(Constants.CLAIM_REALM_ACCESS).get(Constants.CLAIM_ROLES)) {
+                    roles.add(role.asString());
+                }
+            }
+            if (node.has(Constants.CLAIM_ROLES)) {
+                for (JsonNode role : node.get(Constants.CLAIM_ROLES)) {
                     roles.add(role.asString());
                 }
             }

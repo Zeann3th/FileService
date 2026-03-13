@@ -8,8 +8,10 @@ services:
     volumes:
       - minio-data:/data
     ports:
+      - "9000:9000"
       - "9001:9001"
     networks:
+      - extern
       - private
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
@@ -23,6 +25,7 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      MINIO_PUBLIC_ENDPOINT: http://host.docker.internal:9000
       MINIO_BUCKET: files
       FILE_SERVICE_PUBLIC_URL: http://file-service:8080
     ports:

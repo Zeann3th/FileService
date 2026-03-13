@@ -3,7 +3,7 @@ package dev.zeann3th.file.service;
 import dev.zeann3th.file.dto.PresignResponse;
 import io.minio.*;
 import io.minio.http.Method;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -15,16 +15,21 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@RequiredArgsConstructor
 public class FileService {
 
     private final MinioClient minioClient;
+    private final MinioClient presignMinioClient;
 
     @Value("${minio.bucket}")
     private String bucket;
 
     @Value("${file-service.public-url}")
     private String publicUrl;
+
+    public FileService(MinioClient minioClient, @Qualifier("presignMinioClient") MinioClient presignMinioClient) {
+        this.minioClient = minioClient;
+        this.presignMinioClient = presignMinioClient;
+    }
 
     public PresignResponse presignUpload(String filename, boolean isPrivate, String keyPath, String sub) throws Exception {
         String extension = "";
@@ -37,14 +42,12 @@ public class FileService {
         String key;
 
         if (isPrivate) {
-            // private/<sub>/<date>/<keyPath>/uuid.ext  or  private/<sub>/<date>/uuid.ext
             key = "private/" + sub + "/" + date;
             if (keyPath != null && !keyPath.isBlank()) {
                 key += "/" + keyPath.strip();
             }
             key += "/" + UUID.randomUUID() + extension;
         } else {
-            // public/<date>/<keyPath>/uuid.ext  or  public/<date>/uuid.ext
             key = "public/" + date;
             if (keyPath != null && !keyPath.isBlank()) {
                 key += "/" + keyPath.strip();
@@ -52,7 +55,7 @@ public class FileService {
             key += "/" + UUID.randomUUID() + extension;
         }
 
-        String presignUrl = minioClient.getPresignedObjectUrl(
+        String presignUrl = presignMinioClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.PUT)
                         .bucket(bucket)
@@ -71,7 +74,7 @@ public class FileService {
     }
 
     public String presignDownload(String key) throws Exception {
-        return minioClient.getPresignedObjectUrl(
+        return presignMinioClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.GET)
                         .bucket(bucket)
@@ -99,5 +102,14 @@ public class FileService {
                         .build()
         );
         return stat.contentType();
+    }
+
+    public void deleteFile(String key) throws Exception {
+        minioClient.removeObject(
+                RemoveObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(key)
+                        .build()
+        );
     }
 }
