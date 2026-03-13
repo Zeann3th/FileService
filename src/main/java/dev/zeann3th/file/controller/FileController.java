@@ -1,6 +1,7 @@
 package dev.zeann3th.file.controller;
 
 import dev.zeann3th.file.common.Constants;
+import dev.zeann3th.file.entity.FileEntity;
 import dev.zeann3th.file.dto.PresignResponse;
 import dev.zeann3th.file.dto.PresignUploadRequest;
 import dev.zeann3th.file.exception.CommandExceptionBuilder;
@@ -93,30 +94,32 @@ public class FileController {
             return;
         }
 
-        if (!claims.roles().contains(Constants.ROLE_USER)) {
+        FileEntity fileEntity = fileService.getFileRecord(key)
+                .orElseThrow(() -> CommandExceptionBuilder.exception(ErrorCode.FS0001, Map.of("key", key)));
+
+        if (!fileEntity.getOwnerSub().equals(claims.sub())) {
             throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
-        }
-
-        if (key.startsWith("public/")) {
-            // Users cannot delete public files
-            throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
-        }
-
-        if (key.startsWith("private/")) {
-            String[] parts = key.split("/");
-            if (parts.length < 2) {
-                throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
-            }
-
-            String pathSub = parts[1];
-            if (!pathSub.equals(claims.sub())) {
-                throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
-            }
         }
     }
 
     private void checkPrivateAccess(String key, String authorization) {
-        if (!key.startsWith("private/")) {
+        FileEntity fileEntity = fileService.getFileRecord(key).orElse(null);
+        
+        // If no fileEntity, we fall back to path-based (for existing files or public direct access)
+        if (fileEntity == null) {
+            if (key.startsWith("private/")) {
+                JwtClaims claims = requireClaims(authorization);
+                if (claims.roles().contains(Constants.ROLE_ADMIN)) return;
+                
+                String[] parts = key.split("/");
+                if (parts.length < 2 || !parts[1].equals(claims.sub())) {
+                    throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
+                }
+            }
+            return;
+        }
+
+        if (!fileEntity.isPrivate()) {
             return;
         }
 
@@ -126,14 +129,7 @@ public class FileController {
             return;
         }
 
-        // key format: private/<sub>/<date>/...
-        String[] parts = key.split("/");
-        if (parts.length < 2) {
-            throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
-        }
-
-        String pathSub = parts[1];
-        if (!pathSub.equals(claims.sub())) {
+        if (!fileEntity.getOwnerSub().equals(claims.sub())) {
             throw CommandExceptionBuilder.exception(ErrorCode.FS0005);
         }
     }

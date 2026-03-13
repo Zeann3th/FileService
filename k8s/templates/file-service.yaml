@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-service
+spec:
+  replicas: {{ .Values.fileService.replicaCount }}
+  selector: { matchLabels: { app: file-service } }
+  template:
+    metadata: { labels: { app: file-service } }
+    spec:
+      containers:
+      - name: file-service
+        image: {{ .Values.fileService.image | quote }}
+        envFrom:
+        - configMapRef: { name: {{ .Release.Name }}-config }
+        env:
+        - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://postgres-file:5432/{{ .Values.postgres.file.db }}" }
+        - { name: SPRING_DATASOURCE_USERNAME, value: {{ .Values.postgres.file.user | quote }} }
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: POSTGRES_FILE_PASSWORD } }
+        - name: MINIO_ACCESS_KEY
+          valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: MINIO_ACCESS_KEY } }
+        - name: MINIO_SECRET_KEY
+          valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: MINIO_SECRET_KEY } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-service
+spec:
+  ports: [{ port: 8080 }]
+  selector: { app: file-service }

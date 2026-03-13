@@ -19,6 +19,22 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-file:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fileservice
+      POSTGRES_USER: fileservice
+      POSTGRES_PASSWORD: fileservice
+    volumes:
+      - postgres-file-data:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fileservice"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   file-service:
     build: .
     environment:
@@ -28,10 +44,16 @@ services:
       MINIO_PUBLIC_ENDPOINT: http://host.docker.internal:9000
       MINIO_BUCKET: files
       FILE_SERVICE_PUBLIC_URL: http://file-service:8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-file:5432/fileservice
+      SPRING_DATASOURCE_USERNAME: fileservice
+      SPRING_DATASOURCE_PASSWORD: fileservice
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
     ports:
       - "52004:8080"
     depends_on:
       minio:
+        condition: service_healthy
+      postgres-file:
         condition: service_healthy
     networks:
       - extern
@@ -39,6 +61,7 @@ services:
 
 volumes:
   minio-data:
+  postgres-file-data:
 
 networks:
   extern:

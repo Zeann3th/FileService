@@ -1,24 +1,32 @@
 package dev.zeann3th.file.service;
 
+import dev.zeann3th.file.entity.FileEntity;
 import dev.zeann3th.file.dto.PresignResponse;
+import dev.zeann3th.file.repository.FileRecordRepository;
 import io.minio.*;
 import io.minio.http.Method;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@RequiredArgsConstructor
 public class FileService {
 
     private final MinioClient minioClient;
+    @Qualifier("presignMinioClient")
     private final MinioClient presignMinioClient;
+    private final FileRecordRepository fileRecordRepository;
 
     @Value("${minio.bucket}")
     private String bucket;
@@ -26,11 +34,7 @@ public class FileService {
     @Value("${file-service.public-url}")
     private String publicUrl;
 
-    public FileService(MinioClient minioClient, @Qualifier("presignMinioClient") MinioClient presignMinioClient) {
-        this.minioClient = minioClient;
-        this.presignMinioClient = presignMinioClient;
-    }
-
+    @Transactional
     public PresignResponse presignUpload(String filename, boolean isPrivate, String keyPath, String sub) throws Exception {
         String extension = "";
         int dotIndex = filename.lastIndexOf('.');
@@ -65,6 +69,15 @@ public class FileService {
         );
 
         String fileUrl = publicUrl + "/api/v1/files/" + key;
+
+        // Save metadata
+        FileEntity fileEntity = FileEntity.builder()
+                .fileKey(key)
+                .ownerSub(sub)
+                .originalFilename(filename)
+                .isPrivate(isPrivate)
+                .build();
+        fileRecordRepository.save(fileEntity);
 
         return PresignResponse.builder()
                 .presignUrl(presignUrl)
@@ -104,6 +117,7 @@ public class FileService {
         return stat.contentType();
     }
 
+    @Transactional
     public void deleteFile(String key) throws Exception {
         minioClient.removeObject(
                 RemoveObjectArgs.builder()
@@ -111,5 +125,10 @@ public class FileService {
                         .object(key)
                         .build()
         );
+        fileRecordRepository.findByFileKey(key).ifPresent(fileRecordRepository::delete);
+    }
+
+    public Optional<FileEntity> getFileRecord(String key) {
+        return fileRecordRepository.findByFileKey(key);
     }
 }
